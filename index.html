@@ -386,7 +386,7 @@
                     console.log("saveRedirect success");
                     updateRedirectSelect();
                     renderRedirectsList();
-                });
+                })
                 .catch(error => {
                     console.error("saveRedirect error:", error);
                     throw error; // Re-throw to be caught by the caller
