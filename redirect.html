@@ -45,7 +45,8 @@
             storageBucket: "nth-canto-396112.firebasestorage.app",
             messagingSenderId: "601476987790",
             appId: "1:601476987790:web:675f9528a892d386f802df",
-            measurementId: "G-8WQ7SWWG3D"
+            measurementId: "G-8WQ7SWWG3D",
+            databaseURL: "https://nth-canto-396112-default-rtdb.firebaseio.com"
         };
         
         firebase.initializeApp(firebaseConfig);
@@ -64,7 +65,7 @@
             
             if (!redirectId) {
                 showError("No redirect ID specified");
-                return;
+                return
             }
 
             // Fetch the redirect from Firebase
