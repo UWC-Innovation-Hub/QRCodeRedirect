@@ -65,8 +65,12 @@
             
             if (!redirectId) {
                 showError("No redirect ID specified");
-                return;
-            }
+            } else {
+                    // Set a timeout to ensure redirection happens even if Firebase is slow
+                    const redirectTimeout = setTimeout(() => {
+                        showError("Redirect timed out. Please try again.");
+                    }, 3000); // 3 second timeout
+        
 
             // Fetch the redirect from Firebase
             database.ref('redirects/' + redirectId).once('value')
@@ -74,12 +78,13 @@
                     const targetUrl = snapshot.val();
                     if (targetUrl) {
                         // Redirect to the target URL
-                        window.location.href = targetUrl;
+                        window.location.replace(targetUrl);
                     } else {
                         showError(`Redirect ID "${redirectId}" not found`);
                     }
                 })
                 .catch(error => {
+                    clearTimeout(redirectTimeout);
                     showError("Error loading redirect data: " + error.message);
                 });
         }
