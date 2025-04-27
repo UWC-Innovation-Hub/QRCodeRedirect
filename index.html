@@ -380,10 +380,16 @@
         
         // Save redirects to Firebase
         function saveRedirect(id, targetUrl) {
+            console.log("saveRedirect called with", id, targetUrl);
             return database.ref('redirects/' + id).set(targetUrl)
                 .then(() => {
+                    console.log("saveRedirect success");
                     updateRedirectSelect();
                     renderRedirectsList();
+                });
+                .catch(error => {
+                    console.error("saveRedirect error:", error);
+                    throw error; // Re-throw to be caught by the caller
                 });
         }
         
@@ -628,9 +634,12 @@
         
         // Generate redirectable QR code
         generateRedirectBtn.addEventListener('click', function() {
+            console.log("Redirectable button clicked!");
             const redirectId = redirectIdInput.value.trim();
             let targetUrl = formatUrl(targetUrlInput.value);
             
+            console.log("ID:", redirectId, "Target URL:", targetUrl);
+
             if (!redirectId) {
                 alert('Please enter a redirect ID');
                 return;
@@ -640,10 +649,13 @@
                 alert('Please enter a target URL');
                 return;
             }
+
+            console.log("About to check if ID exists in Firebase");
             
             // Check if ID already exists
             database.ref('redirects/' + redirectId).once('value')
                 .then(snapshot => {
+                    console.log("Firebase check completed", snapshot.exists());
                     if (snapshot.exists() && !confirm(`Redirect ID "${redirectId}" already exists. Overwrite it?`)) {
                         return Promise.reject(new Error('Operation cancelled by user'));
                     }
@@ -651,13 +663,19 @@
                     // Update input with formatted URL
                     targetUrlInput.value = targetUrl;
                     
+
+                    console.log("Saving redirect to Firebase");
+
                     // Store the redirect in Firebase
                     return saveRedirect(redirectId, targetUrl);
                 })
                 .then(() => {
+                    console.log("Redirect saved successfully");
                     // Build redirect URL
                     const redirectUrl = `${REDIRECT_SERVICE_URL}?id=${encodeURIComponent(redirectId)}`;
                     
+                    console.log("Generating QR code with URL:", redirectUrl);
+
                     // Generate QR code
                     generateQRCode(redirectUrl, `Redirect ID: ${redirectId} → ${targetUrl}`);
                     
@@ -666,6 +684,7 @@
                     showRedirectFileInfo(redirectFile);
                 })
                 .catch(error => {
+                    console.error("Error in redirect process:", error);
                     if (error.message !== 'Operation cancelled by user') {
                         alert(`Error creating redirect: ${error.message}`);
                     }
