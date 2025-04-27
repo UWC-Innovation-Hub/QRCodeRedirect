@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Generator with Redirection</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <!-- Keep all your existing CSS here -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        .input-group {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        input, select {
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 100%;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #3367d6;
+        }
+        .qr-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+            gap: 15px;
+        }
+        .download-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .hidden {
+            display: none;
+        }
+        #qrcode {
+            padding: 20px;
+            background-color: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            max-width: 100%;
+            overflow: hidden;
+        }
+        #qrcode img {
+            max-width: 100%;
+            height: auto;
+        }
+        h1 {
+            color: #4285f4;
+        }
+        .url-display {
+            word-break: break-all;
+            font-size: 14px;
+            color: #666;
+            max-width: 100%;
+            text-align: center;
+        }
+        .info-box {
+            background-color: #f8f9fa;
+            border-left: 4px solid #4285f4;
+            padding: 10px 15px;
+            margin-top: 10px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        .mode-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .tab-container {
+            width: 100%;
+            margin-bottom: 15px;
+        }
+        .tabs {
+            display: flex;
+            gap: 2px;
+            margin-bottom: 15px;
+        }
+        .tab {
+            padding: 10px 15px;
+            background-color: #f1f1f1;
+            border: none;
+            cursor: pointer;
+            flex-grow: 1;
+            text-align: center;
+            transition: background-color 0.3s;
+        }
+        .tab.active {
+            background-color: #4285f4;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .redirects-list {
+            margin-top: 15px;
+            margin-bottom: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            border-radius: 4px;
+        }
+        .redirect-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .redirect-item:last-child {
+            border-bottom: none;
+        }
+        .redirect-id {
+            font-weight: bold;
+            color: #4285f4;
+        }
+        .redirect-url {
+            word-break: break-all;
+        }
+        .redirect-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 5px;
+        }
+        .success-message {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        .error-message {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        .message {
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        .no-redirects {
+            padding: 15px;
+            color: #666;
+            text-align: center;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+        .save-btn {
+            background-color: #34a853;
+        }
+        .delete-btn {
+            background-color: #ea4335;
+        }
+        .cancel-btn {
+            background-color: #9aa0a6;
+        }
+        .redirect-file-info {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #e6f7ff;
+            border-left: 4px solid #91d5ff;
+            border-radius: 4px;
+        }
+        .redirect-file-content {
+            font-family: monospace;
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>QR Code Generator</h1>
+        
+        <div class="tab-container">
+            <div class="tabs">
+                <button class="tab active" data-target="direct-tab">Direct QR Code</button>
+                <button class="tab" data-target="redirect-tab">Create Redirectable QR</button>
+                <button class="tab" data-target="update-tab">Update Redirects</button>
+            </div>
+            
+            <!-- Direct QR Code Tab -->
+            <div id="direct-tab" class="tab-content active">
+                <div class="input-group">
+                    <label for="direct-url-input">Enter Website URL:</label>
+                    <input type="text" id="direct-url-input" placeholder="https://example.com" value="">
+                    <button id="generate-direct-btn">Generate QR Code</button>
+                </div>
+            </div>
+            
+            <!-- Redirectable QR Code Tab -->
+            <div id="redirect-tab" class="tab-content">
+                <div class="input-group">
+                    <div class="mode-title">Create Redirectable QR Code</div>
+                    <label for="redirect-id-input">Create a unique redirect ID:</label>
+                    <input type="text" id="redirect-id-input" placeholder="my-redirect-123" value="">
+                    
+                    <label for="target-url-input">Initial Target URL (where to redirect):</label>
+                    <input type="text" id="target-url-input" placeholder="https://example.com" value="">
+                    
+                    <button id="generate-redirect-btn">Generate Redirectable QR Code</button>
+                    
+                    <div class="info-box">
+                        <p>This creates a QR code that points to a redirect server. Later, you can change where this ID redirects to without changing the QR code itself.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Update Redirects Tab -->
+            <div id="update-tab" class="tab-content">
+                <div class="input-group">
+                    <div class="mode-title">Update Existing Redirects</div>
+                    <p>Select a redirect ID to update its target URL:</p>
+                    
+                    <label for="update-id-select">Select Redirect ID:</label>
+                    <select id="update-id-select">
+                        <option value="">-- Select a redirect ID --</option>
+                    </select>
+                    
+                    <div id="update-form" class="hidden">
+                        <label for="update-url-input">New Target URL:</label>
+                        <input type="text" id="update-url-input" placeholder="https://newdestination.com">
+                        
+                        <div class="info-box">
+                            <p>Current target: <span id="current-target-display"></span></p>
+                        </div>
+                        
+                        <button id="update-redirect-btn" class="save-btn">Update Redirect</button>
+                    </div>
+                    
+                    <div id="update-result" class="hidden message"></div>
+                    
+                    <div class="mode-title" style="margin-top: 20px;">All Your Redirects</div>
+                    <div id="redirects-list" class="redirects-list">
+                        <div class="no-redirects">No redirects found. Create one in the "Create Redirectable QR" tab.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="qr-container hidden" id="qr-container">
+            <div id="qrcode"></div>
+            <p class="url-display" id="url-display"></p>
+            
+            <div class="download-buttons">
+                <button id="download-svg">Download SVG</button>
+                <button id="download-png">Download PNG</button>
+            </div>
+            
+            <div id="redirect-file-info" class="redirect-file-info hidden">
+                <div class="mode-title">Redirect File Generated</div>
+                <p>A .redirect file has been created for your QR code. This file contains the information needed to update your redirect later.</p>
+                <div id="redirect-file-content" class="redirect-file-content"></div>
+                <button id="download-redirect-file-btn" style="margin-top: 10px;">Download .redirect File</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get DOM elements
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+        const directUrlInput = document.getElementById('direct-url-input');
+        const redirectIdInput = document.getElementById('redirect-id-input');
+        const targetUrlInput = document.getElementById('target-url-input');
+        const updateIdSelect = document.getElementById('update-id-select');
+        const updateForm = document.getElementById('update-form');
+        const updateUrlInput = document.getElementById('update-url-input');
+        const currentTargetDisplay = document.getElementById('current-target-display');
+        const updateRedirectBtn = document.getElementById('update-redirect-btn');
+        const updateResult = document.getElementById('update-result');
+        const generateDirectBtn = document.getElementById('generate-direct-btn');
+        const generateRedirectBtn = document.getElementById('generate-redirect-btn');
+        const qrContainer = document.getElementById('qr-container');
+        const qrcodeDiv = document.getElementById('qrcode');
+        const urlDisplay = document.getElementById('url-display');
+        const downloadSvgBtn = document.getElementById('download-svg');
+        const downloadPngBtn = document.getElementById('download-png');
+        const redirectsList = document.getElementById('redirects-list');
+        const redirectFileInfo = document.getElementById('redirect-file-info');
+        const redirectFileContent = document.getElementById('redirect-file-content');
+        const downloadRedirectFileBtn = document.getElementById('download-redirect-file-btn');
+        
+        // Tab switching functionality
+        tabs.forEach(tab => {
+            tab.addEventListener('click', function() {
+                // Remove active class from all tabs and contents
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+                
+                // Add active class to clicked tab
+                this.classList.add('active');
+                
+                // Show corresponding content
+                const targetId = this.getAttribute('data-target');
+                document.getElementById(targetId).classList.add('active');
+                
+                // If switching to update tab, refresh the list and select options
+                if (targetId === 'update-tab') {
+                    updateRedirectSelect();
+                    renderRedirectsList();
+                }
+                
+                // Hide QR container when switching tabs
+                qrContainer.classList.add('hidden');
+            });
+        });
+        
+        // QR code instance
+        let qrcode = null;
+        let currentRedirectFile = null;
+        
+        // Base URL for the redirect service
+        // In a real implementation, this would be your actual redirect service
+        const REDIRECT_SERVICE_URL = 'https://example.com/redirect';
+        
+        // Redirect storage (simulating a database)
+        const redirectStore = JSON.parse(localStorage.getItem('qr-redirects') || '{}');
+        
+        // Save redirects to localStorage
+        function saveRedirects() {
+            localStorage.setItem('qr-redirects', JSON.stringify(redirectStore));
+            updateRedirectSelect();
+            renderRedirectsList();
+        }
+        
+        // Update the redirect select dropdown
+        function updateRedirectSelect() {
+            // Clear existing options except the first one
+            while (updateIdSelect.options.length > 1) {
+                updateIdSelect.remove(1);
+            }
+            
+            // Add options for each redirect
+            const redirectIds = Object.keys(redirectStore).sort();
+            redirectIds.forEach(id => {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = id;
+                updateIdSelect.appendChild(option);
+            });
+        }
+        
+        // Handle redirect select change
+        updateIdSelect.addEventListener('change', function() {
+            const selectedId = this.value;
+            
+            if (selectedId) {
+                // Show update form
+                updateForm.classList.remove('hidden');
+                
+                // Display current target
+                const currentTarget = redirectStore[selectedId];
+                currentTargetDisplay.textContent = currentTarget;
+                
+                // Set input value
+                updateUrlInput.value = currentTarget;
+            } else {
+                // Hide update form if no ID selected
+                updateForm.classList.add('hidden');
+            }
+            
+            // Hide any previous results
+            updateResult.classList.add('hidden');
+        });
+        
+        // Handle update redirect button
+        updateRedirectBtn.addEventListener('click', function() {
+            const selectedId = updateIdSelect.value;
+            const newTargetUrl = formatUrl(updateUrlInput.value);
+            
+            if (!selectedId) {
+                showUpdateResult('Please select a redirect ID', false);
+                return;
+            }
+            
+            if (!newTargetUrl) {
+                showUpdateResult('Please enter a valid URL', false);
+                return;
+            }
+            
+            // Update the redirect
+            redirectStore[selectedId] = newTargetUrl;
+            saveRedirects();
+            
+            // Update display
+            currentTargetDisplay.textContent = newTargetUrl;
+            
+            // Show success message
+            showUpdateResult(`Successfully updated redirect for "${selectedId}" to "${newTargetUrl}"`, true);
+            
+            // Create and show updated redirect file info
+            const redirectFile = createRedirectFile(selectedId, newTargetUrl);
+            showRedirectFileInfo(redirectFile);
+        });
+        
+        // Show update result
+        function showUpdateResult(message, isSuccess) {
+            updateResult.textContent = message;
+            updateResult.className = 'message';
+            updateResult.classList.add(isSuccess ? 'success-message' : 'error-message');
+            updateResult.classList.remove('hidden');
+        }
+        
+        // Format URL (add https:// if missing)
+        function formatUrl(url) {
+            url = url.trim();
+            if (url && !url.match(/^[a-zA-Z]+:\/\//)) {
+                return 'https://' + url;
+            }
+            return url;
+        }
+        
+        // Render the list of redirects
+        function renderRedirectsList() {
+            if (!redirectsList) return;
+            
+            // Clear existing content
+            redirectsList.innerHTML = '';
+            
+            const redirectIds = Object.keys(redirectStore);
+            
+            if (redirectIds.length === 0) {
+                redirectsList.innerHTML = '<div class="no-redirects">No redirects found. Create one in the "Create Redirectable QR" tab.</div>';
+                return;
+            }
+            
+            // Sort redirects alphabetically
+            redirectIds.sort();
+            
+            // Create elements for each redirect
+            redirectIds.forEach(id => {
+                const targetUrl = redirectStore[id];
+                const redirectItem = document.createElement('div');
+                redirectItem.className = 'redirect-item';
+                redirectItem.dataset.id = id;
+                
+                redirectItem.innerHTML = `
+                    <div class="redirect-id">ID: ${id}</div>
+                    <div class="redirect-url">Target URL: ${targetUrl}</div>
+                    <div class="redirect-actions">
+                        <button class="generate-qr-btn">Generate QR</button>
+                        <button class="download-file-btn">Download .redirect</button>
+                        <button class="delete-btn">Delete</button>
+                    </div>
+                `;
+                
+                // Add event listeners
+                const generateQrBtn = redirectItem.querySelector('.generate-qr-btn');
+                const downloadFileBtn = redirectItem.querySelector('.download-file-btn');
+                const deleteBtn = redirectItem.querySelector('.delete-btn');
+                
+                generateQrBtn.addEventListener('click', () => {
+                    generateQRForExistingRedirect(id, targetUrl);
+                });
+                
+                downloadFileBtn.addEventListener('click', () => {
+                    downloadRedirectFile(id, targetUrl);
+                });
+                
+                deleteBtn.addEventListener('click', () => {
+                    if (confirm(`Are you sure you want to delete the redirect for "${id}"?`)) {
+                        delete redirectStore[id];
+                        saveRedirects();
+                    }
+                });
+                
+                redirectsList.appendChild(redirectItem);
+            });
+        }
+        
+        // Generate QR code for an existing redirect
+        function generateQRForExistingRedirect(id, targetUrl) {
+            // Build redirect URL
+            const redirectUrl = `${REDIRECT_SERVICE_URL}?id=${encodeURIComponent(id)}`;
+            
+            // Generate QR code
+            generateQRCode(redirectUrl, `Redirect ID: ${id} → ${targetUrl}`);
+            
+            // Show the redirect file info
+            const redirectFile = createRedirectFile(id, targetUrl);
+            showRedirectFileInfo(redirectFile);
+        }
+        
+        // Create a redirect file
+        function createRedirectFile(id, targetUrl) {
+            const redirectFile = {
+                id: id,
+                targetUrl: targetUrl,
+                created: new Date().toISOString(),
+                lastModified: new Date().toISOString()
+            };
+            
+            return redirectFile;
+        }
+        
+        // Show redirect file info
+        function showRedirectFileInfo(redirectFile) {
+            // Convert to formatted JSON string
+            const jsonContent = JSON.stringify(redirectFile, null, 2);
+            
+            // Display file content
+            redirectFileContent.textContent = jsonContent;
+            
+            // Show the info section
+            redirectFileInfo.classList.remove('hidden');
+            
+            // Save current file for download
+            currentRedirectFile = redirectFile;
+        }
+        
+        // Download redirect file
+        function downloadRedirectFile(id, targetUrl) {
+            const redirectFile = createRedirectFile(id, targetUrl);
+            const jsonContent = JSON.stringify(redirectFile, null, 2);
+            
+            // Download the file
+            downloadFile(jsonContent, `${id}.redirect`, 'application/json');
+        }
+        
+        // Download redirect file button
+        downloadRedirectFileBtn.addEventListener('click', function() {
+            if (currentRedirectFile) {
+                const id = currentRedirectFile.id;
+                const targetUrl = currentRedirectFile.targetUrl;
+                downloadRedirectFile(id, targetUrl);
+            }
+        });
+        
+        // Generate direct QR code
+        generateDirectBtn.addEventListener('click', function() {
+            let url = formatUrl(directUrlInput.value);
+            
+            if (!url) {
+                alert('Please enter a valid URL');
+                return;
+            }
+            
+            // Update input with formatted URL
+            directUrlInput.value = url;
+            
+            // Generate QR code
+            generateQRCode(url, 'Direct URL: ' + url);
+            
+            // Hide redirect file info
+            redirectFileInfo.classList.add('hidden');
+        });
+        
+        // Generate redirectable QR code
+        generateRedirectBtn.addEventListener('click', function() {
+            const redirectId = redirectIdInput.value.trim();
+            let targetUrl = formatUrl(targetUrlInput.value);
+            
+            if (!redirectId) {
+                alert('Please enter a redirect ID');
+                return;
+            }
+            
+            if (!targetUrl) {
+                alert('Please enter a target URL');
+                return;
+            }
+            
+            // Check if ID already exists
+            if (redirectStore[redirectId] && !confirm(`Redirect ID "${redirectId}" already exists. Overwrite it?`)) {
+                return;
+            }
+            
+            // Update input with formatted URL
+            targetUrlInput.value = targetUrl;
+            
+            // Store the redirect
+            redirectStore[redirectId] = targetUrl;
+            saveRedirects();
+            
+            // Build redirect URL
+            const redirectUrl = `${REDIRECT_SERVICE_URL}?id=${encodeURIComponent(redirectId)}`;
+            
+            // Generate QR code
+            generateQRCode(redirectUrl, `Redirect ID: ${redirectId} → ${targetUrl}`);
+            
+            // Create and show redirect file info
+            const redirectFile = createRedirectFile(redirectId, targetUrl);
+            showRedirectFileInfo(redirectFile);
+        });
+        
+        // Generate QR code helper function
+        function generateQRCode(text, displayText) {
+            // Clear previous QR code
+            qrcodeDiv.innerHTML = '';
+            
+            // Create new QR code
+            qrcode = new QRCode(qrcodeDiv, {
+                text: text,
+                width: 256,
+                height: 256,
+                colorDark: '#000000',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.L  // Lower error correction for better compatibility
+            });
+            
+            // Display URL/info below QR code
+            urlDisplay.textContent = displayText;
+            
+            // Show QR container
+            qrContainer.classList.remove('hidden');
+        }
+        
+        // Download as SVG
+        downloadSvgBtn.addEventListener('click', function() {
+            if (!qrcode) return;
+            
+            // Get the canvas and convert to SVG
+            const canvas = qrcodeDiv.querySelector('canvas');
+            const svgString = canvasToSVG(canvas);
+            
+            // Download SVG
+            downloadFile(svgString, 'qrcode.svg', 'image/svg+xml');
+        });
+        
+        // Download as PNG
+        downloadPngBtn.addEventListener('click', function() {
+            if (!qrcode) return;
+            
+            // Get the canvas
+            const canvas = qrcodeDiv.querySelector('canvas');
+            
+            // Convert canvas to Blob and download
+            canvas.toBlob(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'qrcode.png';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+        });
+        
+        // Convert canvas to SVG
+        function canvasToSVG(canvas) {
+            const width = canvas.width;
+            const height = canvas.height;
+            const ctx = canvas.getContext('2d');
+            const imgData = ctx.getImageData(0, 0, width, height);
+            const data = imgData.data;
+            
+            // Create SVG
+            let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+            <rect width="${width}" height="${height}" fill="white" />`;
+            
+            // Find the pixel size (assuming QR code is square)
+            const pixelSize = width / Math.sqrt(data.length / 4);
+            
+            // Loop through pixels and create SVG rectangles for dark areas
+            for (let y = 0; y < height; y += pixelSize) {
+                for (let x = 0; x < width; x += pixelSize) {
+                    const pixelIndex = ((Math.floor(y) * width) + Math.floor(x)) * 4;
+                    // If pixel is dark (r+g+b < 300 out of 765 max)
+                    if (data[pixelIndex] + data[pixelIndex + 1] + data[pixelIndex + 2] < 300) {
+                        svg += `<rect x="${x}" y="${y}" width="${pixelSize}" height="${pixelSize}" fill="black" />`;
+                    }
+                }
+            }
+            
+            svg += '</svg>';
+            return svg;
+        }
+        
+        // Download file helper
+        function downloadFile(content, fileName, contentType) {
+            const blob = new Blob([content], { type: contentType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            updateRedirectSelect();
+            renderRedirectsList();
+        });
+
+        // Initialize Firebase
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT.firebaseio.com",
+            projectId: "YOUR_PROJECT",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_MESSAGING_ID",
+            appId: "YOUR_APP_ID"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // Get DOM elements (keep your existing DOM references)
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+        // ...rest of your DOM references...
+
+        // Tab switching functionality (keep your existing code)
+        tabs.forEach(tab => {
+            // ...existing tab code...
+        });
+        
+        // QR code instance
+        let qrcode = null;
+        let currentRedirectFile = null;
+        
+        // Base URL for the redirect service - this will point to our Firebase redirect handler
+        const REDIRECT_SERVICE_URL = 'https://YOUR-USERNAME.github.io/qr-redirect/redirect.html';
+        
+        // Replace localStorage with Firebase
+        // Instead of getting redirects from localStorage, get them from Firebase
+        function getRedirects() {
+            return database.ref('redirects').once('value')
+                .then(snapshot => {
+                    return snapshot.val() || {};
+                });
+        }
+        
+        // Save redirects to Firebase
+        function saveRedirect(id, targetUrl) {
+            return database.ref('redirects/' + id).set(targetUrl)
+                .then(() => {
+                    updateRedirectSelect();
+                    renderRedirectsList();
+                });
+        }
+        
+        // Delete a redirect from Firebase
+        function deleteRedirect(id) {
+            return database.ref('redirects/' + id).remove()
+                .then(() => {
+                    updateRedirectSelect();
+                    renderRedirectsList();
+                });
+        }
+        
+        // Update the redirect select dropdown
+        function updateRedirectSelect() {
+            // Clear existing options except the first one
+            while (updateIdSelect.options.length > 1) {
+                updateIdSelect.remove(1);
+            }
+            
+            // Get redirects from Firebase and add options
+            getRedirects().then(redirectStore => {
+                const redirectIds = Object.keys(redirectStore).sort();
+                redirectIds.forEach(id => {
+                    const option = document.createElement('option');
+                    option.value = id;
+                    option.textContent = id;
+                    updateIdSelect.appendChild(option);
+                });
+            });
+        }
+        
+        // Handle redirect select change
+        updateIdSelect.addEventListener('change', function() {
+            const selectedId = this.value;
+            
+            if (selectedId) {
+                // Show update form
+                updateForm.classList.remove('hidden');
+                
+                // Get current target from Firebase
+                database.ref('redirects/' + selectedId).once('value')
+                    .then(snapshot => {
+                        const currentTarget = snapshot.val();
+                        currentTargetDisplay.textContent = currentTarget;
+                        updateUrlInput.value = currentTarget;
+                    });
+            } else {
+                // Hide update form if no ID selected
+                updateForm.classList.add('hidden');
+            }
+            
+            // Hide any previous results
+            updateResult.classList.add('hidden');
+        });
+        
+        // Handle update redirect button
+        updateRedirectBtn.addEventListener('click', function() {
+            const selectedId = updateIdSelect.value;
+            const newTargetUrl = formatUrl(updateUrlInput.value);
+            
+            if (!selectedId) {
+                showUpdateResult('Please select a redirect ID', false);
+                return;
+            }
+            
+            if (!newTargetUrl) {
+                showUpdateResult('Please enter a valid URL', false);
+                return;
+            }
+            
+            // Update the redirect in Firebase
+            saveRedirect(selectedId, newTargetUrl)
+                .then(() => {
+                    // Update display
+                    currentTargetDisplay.textContent = newTargetUrl;
+                    
+                    // Show success message
+                    showUpdateResult(`Successfully updated redirect for "${selectedId}" to "${newTargetUrl}"`, true);
+                    
+                    // Create and show updated redirect file info
+                    const redirectFile = createRedirectFile(selectedId, newTargetUrl);
+                    showRedirectFileInfo(redirectFile);
+                })
+                .catch(error => {
+                    showUpdateResult(`Error updating redirect: ${error.message}`, false);
+                });
+        });
+        
+        // Render the list of redirects
+        function renderRedirectsList() {
+            if (!redirectsList) return;
+            
+            // Clear existing content
+            redirectsList.innerHTML = '';
+            
+            // Get redirects from Firebase
+            getRedirects().then(redirectStore => {
+                const redirectIds = Object.keys(redirectStore);
+                
+                if (redirectIds.length === 0) {
+                    redirectsList.innerHTML = '<div class="no-redirects">No redirects found. Create one in the "Create Redirectable QR" tab.</div>';
+                    return;
+                }
+                
+                // Sort redirects alphabetically
+                redirectIds.sort();
+                
+                // Create elements for each redirect
+                redirectIds.forEach(id => {
+                    const targetUrl = redirectStore[id];
+                    const redirectItem = document.createElement('div');
+                    redirectItem.className = 'redirect-item';
+                    redirectItem.dataset.id = id;
+                    
+                    redirectItem.innerHTML = `
+                        <div class="redirect-id">ID: ${id}</div>
+                        <div class="redirect-url">Target URL: ${targetUrl}</div>
+                        <div class="redirect-actions">
+                            <button class="generate-qr-btn">Generate QR</button>
+                            <button class="download-file-btn">Download .redirect</button>
+                            <button class="delete-btn">Delete</button>
+                        </div>
+                    `;
+                    
+                    // Add event listeners
+                    const generateQrBtn = redirectItem.querySelector('.generate-qr-btn');
+                    const downloadFileBtn = redirectItem.querySelector('.download-file-btn');
+                    const deleteBtn = redirectItem.querySelector('.delete-btn');
+                    
+                    generateQrBtn.addEventListener('click', () => {
+                        generateQRForExistingRedirect(id, targetUrl);
+                    });
+                    
+                    downloadFileBtn.addEventListener('click', () => {
+                        downloadRedirectFile(id, targetUrl);
+                    });
+                    
+                    deleteBtn.addEventListener('click', () => {
+                        if (confirm(`Are you sure you want to delete the redirect for "${id}"?`)) {
+                            deleteRedirect(id);
+                        }
+                    });
+                    
+                    redirectsList.appendChild(redirectItem);
+                });
+            });
+        }
+        
+        // Generate redirectable QR code
+        generateRedirectBtn.addEventListener('click', function() {
+            const redirectId = redirectIdInput.value.trim();
+            let targetUrl = formatUrl(targetUrlInput.value);
+            
+            if (!redirectId) {
+                alert('Please enter a redirect ID');
+                return;
+            }
+            
+            if (!targetUrl) {
+                alert('Please enter a target URL');
+                return;
+            }
+            
+            // Check if ID already exists
+            database.ref('redirects/' + redirectId).once('value')
+                .then(snapshot => {
+                    if (snapshot.exists() && !confirm(`Redirect ID "${redirectId}" already exists. Overwrite it?`)) {
+                        return;
+                    }
+                    
+                    // Update input with formatted URL
+                    targetUrlInput.value = targetUrl;
+                    
+                    // Store the redirect in Firebase
+                    return saveRedirect(redirectId, targetUrl);
+                })
+                .then(() => {
+                    // Build redirect URL
+                    const redirectUrl = `${REDIRECT_SERVICE_URL}?id=${encodeURIComponent(redirectId)}`;
+                    
+                    // Generate QR code
+                    generateQRCode(redirectUrl, `Redirect ID: ${redirectId} → ${targetUrl}`);
+                    
+                    // Create and show redirect file info
+                    const redirectFile = createRedirectFile(redirectId, targetUrl);
+                    showRedirectFileInfo(redirectFile);
+                })
+                .catch(error => {
+                    alert(`Error creating redirect: ${error.message}`);
+                });
+        });
+
+        // Keep the rest of your functions as they are
+        // showUpdateResult, formatUrl, generateQRForExistingRedirect, createRedirectFile, 
+        // showRedirectFileInfo, downloadRedirectFile, generateQRCode, etc.
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            updateRedirectSelect();
+            renderRedirectsList();
+        });
+    </script>
+</body>
+</html>
