@@ -1,15 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta http-equiv="refresh" content="0;url=DYNAMIC_URL">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Redirecting...</title>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-
-    
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -67,15 +64,11 @@
             const redirectId = getUrlParam('id');
             
             if (!redirectId) {
-                window.addEventListener('DOMContentLoaded', () => {
-                    showError("No redirect ID specified");
-                });
+                showError("No redirect ID specified");
             } else {
-                // Set a timeout to ensure redirection happens even if Firebase is slow
+                    // Set a timeout to ensure redirection happens even if Firebase is slow
                     const redirectTimeout = setTimeout(() => {
-                        window.addEventListener('DOMContentLoaded', () => {
-                            showError("Redirect timed out. Please try again.");
-                        });
+                        showError("Redirect timed out. Please try again.");
                     }, 0); // 0 second timeout
         
 
@@ -87,18 +80,14 @@
                         // Redirect to the target URL
                         window.location.replace(targetUrl);
                     } else {
-                        window.addEventListener('DOMContentLoaded', () => {
                         showError(`Redirect ID "${redirectId}" not found`);
-                        });
                     }
                 })
                 .catch(error => {
                     clearTimeout(redirectTimeout);
-                    window.addEventListener('DOMContentLoaded', () => {
-                        showError("Error loading redirect data: " + error.message);
-                    });
+                    showError("Error loading redirect data: " + error.message);
                 });
-            }
+                
         }
 
         // Function to show error message
