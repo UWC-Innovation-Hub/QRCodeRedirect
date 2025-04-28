@@ -9,6 +9,36 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
+    
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 40px 20px;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.5;
+        }
+        .loading {
+            display: block;
+            margin: 20px auto;
+            font-size: 18px;
+            color: #666;
+        }
+        .error {
+            color: #e74c3c;
+            padding: 20px;
+            border: 1px solid #e74c3c;
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Redirecting you...</h1>
+    <p class="loading">Please wait a moment</p>
+    <div id="error-message" class="error" style="display: none;"></div>
+
     <script>
         // Initialize Firebase (use the same config as in your main page)
         const firebaseConfig = {
@@ -82,34 +112,5 @@
         // Perform the redirect when the page loads
         window.addEventListener('DOMContentLoaded', performRedirect);
     </script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            padding: 40px 20px;
-            max-width: 600px;
-            margin: 0 auto;
-            line-height: 1.5;
-        }
-        .loading {
-            display: block;
-            margin: 20px auto;
-            font-size: 18px;
-            color: #666;
-        }
-        .error {
-            color: #e74c3c;
-            padding: 20px;
-            border: 1px solid #e74c3c;
-            border-radius: 4px;
-            margin-top: 20px;
-        }
-    </style>
-</head>
-<body>
-    <h1>Redirecting you...</h1>
-    <p class="loading">Please wait a moment</p>
-    <div id="error-message" class="error" style="display: none;"></div>
-
 </body>
 </html>
