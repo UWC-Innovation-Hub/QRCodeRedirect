@@ -64,12 +64,16 @@
             const redirectId = getUrlParam('id');
             
             if (!redirectId) {
-                showError("No redirect ID specified");
+                window.addEventListener('DOMContentLoaded', () => {
+                    showError("No redirect ID specified");
+                });
             } else {
-                    // Set a timeout to ensure redirection happens even if Firebase is slow
+                // Set a timeout to ensure redirection happens even if Firebase is slow
                     const redirectTimeout = setTimeout(() => {
-                        showError("Redirect timed out. Please try again.");
-                    }, 3000); // 3 second timeout
+                        window.addEventListener('DOMContentLoaded', () => {
+                            showError("Redirect timed out. Please try again.");
+                        });
+                    }, 0); // 0 second timeout
         
 
             // Fetch the redirect from Firebase
@@ -80,12 +84,16 @@
                         // Redirect to the target URL
                         window.location.replace(targetUrl);
                     } else {
+                        window.addEventListener('DOMContentLoaded', () => {
                         showError(`Redirect ID "${redirectId}" not found`);
+                        });
                     }
                 })
                 .catch(error => {
                     clearTimeout(redirectTimeout);
-                    showError("Error loading redirect data: " + error.message);
+                    window.addEventListener('DOMContentLoaded', () => {
+                        showError("Error loading redirect data: " + error.message);
+                    });
                 });
             }
         }
