@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="preconnect" href="https://www.gstatic.com">
+    <link rel="preconnect" href="https://nth-canto-396112-default-rtdb.europe-west1.firebasedatabase.app">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Redirecting...</title>
@@ -49,57 +51,82 @@
             databaseURL: "https://nth-canto-396112-default-rtdb.europe-west1.firebasedatabase.app"
         };
         
+        // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
-        // Function to get URL parameters
-        function getUrlParam(param) {
-            const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get(param);
+        // Get URL parameter
+        function getRedirectId() {
+            return new URLSearchParams(window.location.search).get('id');
         }
 
-        // Function to redirect to the target URL
-        function performRedirect() {
-            // Get the redirect ID from the URL
-            const redirectId = getUrlParam('id');
+        // Cache management
+        const cache = {
+            get: (id) => {
+                const entry = localStorage.getItem(`redirect-${id}`);
+                return entry ? JSON.parse(entry) : null;
+            },
+            set: (id, url) => {
+                localStorage.setItem(`redirect-${id}`, JSON.stringify({
+                    url,
+                    timestamp: Date.now()
+                }));
+            },
+            clear: (id) => {
+                localStorage.removeItem(`redirect-${id}`);
+            }
+        };
+
+        async function handleRedirect() {
+            const redirectId = getRedirectId();
             
             if (!redirectId) {
-                showError("No redirect ID specified");
-            } else {
-                // Set a timeout to ensure redirection happens even if Firebase is slow
-                const redirectTimeout = setTimeout(() => {
-                    showError("Redirect timed out. Please try again.");
-                }, 3000); // 3 second timeout
+                showError("Missing redirect ID");
+                return;
+            }
+
+            // Check cache first
+            const cached = cache.get(redirectId);
+            if (cached) {
+                window.location.replace(cached.url);
+                return;
+            }
+
+            // Set timeout for Firebase response
+            const timeout = setTimeout(() => {
+                showError("Connection taking longer than expected...");
+            }, 1500);
+
+            try {
+                // Fetch from Firebase
+                const snapshot = await database.ref(`redirects/${redirectId}`).once('value');
+                clearTimeout(timeout);
                 
-                // Fetch the redirect from Firebase
-                database.ref('redirects/' + redirectId).once('value')
-                    .then(snapshot => {
-                        clearTimeout(redirectTimeout);
-                        const targetUrl = snapshot.val();
-                        if (targetUrl) {
-                            // Redirect to the target URL
-                            window.location.href = targetUrl; // Changed back to href instead of replace
-                        } else {
-                            showError(`Redirect ID "${redirectId}" not found`);
-                        }
-                    })
-                    .catch(error => {
-                        clearTimeout(redirectTimeout);
-                        showError("Error loading redirect data: " + error.message);
-                    });
+                if (!snapshot.exists()) {
+                    showError(`Redirect ID "${redirectId}" not found`);
+                    return;
+                }
+
+                const targetUrl = snapshot.val();
+                cache.set(redirectId, targetUrl); // Update cache
+                window.location.replace(targetUrl);
+
+            } catch (error) {
+                clearTimeout(timeout);
+                cache.clear(redirectId); // Clear invalid cache
+                showError(`Error: ${error.message}`);
             }
         }
 
-        // Function to show error message
         function showError(message) {
-            const errorElement = document.getElementById('error-message');
-            errorElement.textContent = message;
-            errorElement.style.display = 'block';
             document.querySelector('.loading').style.display = 'none';
+            const errorEl = document.getElementById('error-message');
+            errorEl.textContent = message;
+            errorEl.style.display = 'block';
         }
 
-        // Perform the redirect when the page loads
-        window.addEventListener('DOMContentLoaded', performRedirect);
+        // Start redirect process
+        window.addEventListener('DOMContentLoaded', handleRedirect);
     </script>
 </body>
 </html>
