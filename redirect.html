@@ -1,45 +1,71 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link rel="preconnect" href="https://www.gstatic.com">
-    <link rel="preconnect" href="https://nth-canto-396112-default-rtdb.europe-west1.firebasedatabase.app">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Redirecting...</title>
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <title>Loading Content...</title>
+    
+    <!-- Preconnect critical domains -->
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://firebasedatabase.app" crossorigin>
+    
+    <!-- Inline critical CSS -->
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            padding: 40px 20px;
-            max-width: 600px;
-            margin: 0 auto;
-            line-height: 1.5;
+        :root {
+            --primary: #2c3e50;
+            --error: #e74c3c;
         }
-        .loading {
-            display: block;
-            margin: 20px auto;
-            font-size: 18px;
-            color: #666;
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            text-align: center;
+            padding: 2rem;
+            margin: 0 auto;
+            max-width: 600px;
+        }
+        .loader {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--primary);
+            border-radius: 50%;
+            border-bottom-color: transparent;
+            animation: rotation 1s linear infinite;
+            margin: 2rem auto;
+        }
+        @keyframes rotation {
+            0% { transform: rotate(0deg) }
+            100% { transform: rotate(360deg) }
         }
         .error {
-            color: #e74c3c;
-            padding: 20px;
-            border: 1px solid #e74c3c;
-            border-radius: 4px;
-            margin-top: 20px;
+            background: #fee;
+            color: var(--error);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-top: 2rem;
         }
     </style>
 </head>
 <body>
-    <h1>Loading...</h1>
-    <p class="loading">Please wait a moment</p>
-    <div id="error-message" class="error" style="display: none;"></div>
+    <div class="loader"></div>
+    <div id="error" class="error" hidden></div>
 
+    <!-- Firebase SDK (async load) -->
+    <script async src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script async src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <!-- Inline core logic -->
     <script>
-        // Initialize Firebase (use the same config as in your main page)
+        // Immediately parse URL parameter
+        const redirectId = (() => {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('id')?.trim();
+        })();
+
+        // Fail fast if no ID
+        if (!redirectId) {
+            showError('Missing redirect ID in URL parameters');
+        }
+
+        // Configure Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyD6rcdNO3K1gw9EfutzZ8bGxBlqSGwdkYQ",
             authDomain: "nth-canto-396112.firebaseapp.com",
@@ -50,83 +76,79 @@
             measurementId: "G-8WQ7SWWG3D",
             databaseURL: "https://nth-canto-396112-default-rtdb.europe-west1.firebasedatabase.app"
         };
-        
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
 
-        // Get URL parameter
-        function getRedirectId() {
-            return new URLSearchParams(window.location.search).get('id');
-        }
-
-        // Cache management
+        // Cache system with TTL (1 hour)
         const cache = {
-            get: (id) => {
-                const entry = localStorage.getItem(`redirect-${id}`);
-                return entry ? JSON.parse(entry) : null;
+            get: () => {
+                try {
+                    const entry = JSON.parse(localStorage.getItem(`rdr-${redirectId}`));
+                    if (entry && Date.now() < entry.expires) return entry.url;
+                } catch(e) { /* ignore errors */ }
+                return null;
             },
-            set: (id, url) => {
-                localStorage.setItem(`redirect-${id}`, JSON.stringify({
+            set: (url) => {
+                localStorage.setItem(`rdr-${redirectId}`, JSON.stringify({
                     url,
-                    timestamp: Date.now()
+                    expires: Date.now() + 3600000 // 1 hour
                 }));
-            },
-            clear: (id) => {
-                localStorage.removeItem(`redirect-${id}`);
             }
         };
 
-        async function handleRedirect() {
-            const redirectId = getRedirectId();
-            
-            if (!redirectId) {
-                showError("Missing redirect ID");
-                return;
-            }
-
-            // Check cache first
-            const cached = cache.get(redirectId);
-            if (cached) {
-                window.location.replace(cached.url);
-                return;
-            }
-
-            // Set timeout for Firebase response
-            const timeout = setTimeout(() => {
-                showError("Connection taking longer than expected...");
-            }, 1500);
-
+        // Main redirect flow
+        async function initRedirect() {
             try {
-                // Fetch from Firebase
-                const snapshot = await database.ref(`redirects/${redirectId}`).once('value');
-                clearTimeout(timeout);
-                
-                if (!snapshot.exists()) {
-                    showError(`Redirect ID "${redirectId}" not found`);
-                    return;
+                // 1. Check cache first
+                if (cachedUrl = cache.get()) {
+                    return redirect(cachedUrl);
                 }
 
+                // 2. Initialize Firebase
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+                
+                // 3. Fetch from database
+                const snapshot = await firebase.database()
+                    .ref(`redirects/${redirectId}`)
+                    .once('value');
+
+                if (!snapshot.exists()) {
+                    throw new Error('Redirect ID not found');
+                }
+
+                // 4. Update cache and redirect
                 const targetUrl = snapshot.val();
-                cache.set(redirectId, targetUrl); // Update cache
-                window.location.replace(targetUrl);
+                cache.set(targetUrl);
+                redirect(targetUrl);
 
             } catch (error) {
-                clearTimeout(timeout);
-                cache.clear(redirectId); // Clear invalid cache
-                showError(`Error: ${error.message}`);
+                showError(error.message);
             }
+        }
+
+        // Helper functions
+        function redirect(url) {
+            // Use replace to prevent back navigation
+            window.location.replace(url);
         }
 
         function showError(message) {
-            document.querySelector('.loading').style.display = 'none';
-            const errorEl = document.getElementById('error-message');
+            document.querySelector('.loader').hidden = true;
+            const errorEl = document.getElementById('error');
             errorEl.textContent = message;
-            errorEl.style.display = 'block';
+            errorEl.hidden = false;
         }
 
-        // Start redirect process
-        window.addEventListener('DOMContentLoaded', handleRedirect);
+        // Start process when Firebase loads
+        window.addEventListener('firebase-ready', initRedirect);
+
+        // Detect Firebase initialization
+        const firebaseCheck = setInterval(() => {
+            if (window.firebase?.database) {
+                clearInterval(firebaseCheck);
+                window.dispatchEvent(new Event('firebase-ready'));
+            }
+        }, 50);
     </script>
 </body>
 </html>
